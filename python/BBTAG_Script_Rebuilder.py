@@ -1,7 +1,10 @@
-import astor_check
+import module.astor as astor
 
-import os, struct, json, sys, astor
+import os, struct, json, sys
 from ast import *
+from BBTAG_Script_Parser import input_san, upon_0, upon_1, animation_san, condition_san
+upon_san = upon_0 + upon_1
+
 GAME = "BBTAG"
 slot_0_temp = Name("SLOT_0")
 
@@ -139,17 +142,17 @@ def write_command_by_id(command, params):
         elif isinstance(value, Constant):
             my_params[index] = value.value
         elif isinstance(value, Name):
-            if command in [43, 14001, 14012]:
+            if command in input_san:
                 my_params[index] = decode_move(value)
-            elif command in [17, 28, 29, 30, 31, 21007]:
+            elif command in upon_san:
                 my_params[index] = decode_upon(value.id)
-            elif command in [9322, 9324, 9334, 9336]:
+            elif command in animation_san:
                 s = value.id.lower()
                 if s in animation_db_lookup:
                     my_params[index] = int(animation_db_lookup[s])
                 else:
                     my_params[index] = int(s)
-            elif command in [14003]:
+            elif command in condition_san:
                 my_params[index] = decode_condition(value)
         elif isinstance(value, UnaryOp):
             my_params[index] = -value.operand.value

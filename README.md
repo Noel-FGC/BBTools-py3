@@ -1,7 +1,6 @@
-## This python script needs the astor package to work <br/> do `pip install astor` in the command line/powershell
+Based on https://github.com/dantarion/bbtools, this version updates the code to python 3 and astor to its latest version. <br/>
+This project vendors the [astor](https://pypi.org/project/astor/) package into the source files.<br/>
 <br/>
-Based on https://github.com/dantarion/bbtools, this version updates the code to python 3 and astor to its latest version. 
-
 **Other changes include:** <br/>
 database update <br/>
 asterror fixes <br/>

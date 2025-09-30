@@ -1,16 +1,25 @@
-import astor_check
+import module.astor as astor
 
-import os, struct, json, sys, astor
+import os, struct, json, sys
 from ast import *
 
 GAME = "BBTAG"
+debug_text = ""
 AFFECT_SLOT_0 = [39, 40, 42, 43, 44, 45, 46, 59, 60, 61, 63, 66, 69, 70, 1116, 2065, 23036, 23037, 23045, 23145, 23146,
                  23148, 23156, 23166, 23177, 30042]
 ast_root = Module([], [])
 ast_stack = [ast_root.body]
-slot_0_expr = None
+slot_0_expr = Expr
 MODE = "<"
 
+input_san = [43, 14001, 14012]
+upon_0 = [17, 28, 29, 30, 31]
+upon_1 = [21007, 21012, 21013]
+animation_san = [9322, 9324, 9334, 9336]
+condition_san = [14003]
+
+no_upon = no_slot = no_0 = no_0_command = debug = raw = enable_attributes = no_animation = False
+command_db = move_inputs_db = normal_inputs_db = animation_db = move_condition_db = object_db = upon_db = slot_db = {}
 
 def load_json(path_from_static):
     try:
@@ -154,18 +163,18 @@ def sanitizer(command):
         i = values[0]
         value = values[1]
         if raw:
+            return Constant(value)
+        if isinstance(value, expr):
             pass
-        elif isinstance(value, expr):
-            pass
-        elif command in [43, 14001, 14012] and isinstance(value, int):
+        elif command in input_san and isinstance(value, int):
             value = Name(get_input_name(command, value))
-        elif command in [17, 28, 29, 30, 31] and i == 0:
+        elif command in upon_0 and i == 0:
             value = get_upon_name(value)
-        elif command in [21007] and i == 1:
+        elif command in upon_1 and i == 1:
             value = get_upon_name(value)
-        elif command in [9322, 9324, 9334, 9336]:
+        elif command in animation_san:
             value = get_animation_name(value)
-        elif command in [14003]:
+        elif command in condition_san:
             value = get_move_condition(value)
         else:
             value = Constant(value)
@@ -192,7 +201,7 @@ def function_clean(command):
 
 
 def parse_bbscript_routine(file):
-    global slot_0_expr, debug
+    global slot_0_expr, debug_text
     empty_args = arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[])
     astor_handler = []
     file.seek(0, os.SEEK_END)
@@ -204,8 +213,6 @@ def parse_bbscript_routine(file):
     while file.tell() != end:
         current_cmd, = struct.unpack(MODE + "I", file.read(4))
         db_data = command_db[str(current_cmd)]
-        if "name" not in db_data:
-            db_data["name"] = "Unknown{0}".format(current_cmd)
         if "format" not in command_db[str(current_cmd)]:
             cmd_data = [file.read(command_db[str(current_cmd)]["size"] - 4)]
         else:
@@ -250,7 +257,7 @@ def parse_bbscript_routine(file):
         # 14001 is Move_Register/StateRegister
         elif current_cmd == 14001:
             command = FunctionDef(function_clean(cmd_data[0]),
-                                  arguments(args=[arg(get_input_name(current_cmd, cmd_data[1]))]), [],
+                                  arguments(args=[arg(get_input_name(current_cmd, cmd_data[1]))], defaults=[]), [],
                                   [Name(id="StateRegister")])
             ast_stack[-1].append(command)
             ast_stack.append(ast_stack[-1][-1].body)
@@ -271,7 +278,7 @@ def parse_bbscript_routine(file):
             ifnode = ast_stack[-1][-1]
             try:
                 ast_stack.append(ifnode.orelse)
-            except Exception as _:
+            except AttributeError:
                 # When arcsys puts a random else bracket in the code that does nothing :)
                 ast_stack.append([])
         # 36 is apply function to Object
@@ -362,7 +369,7 @@ def parse_bbscript_routine(file):
 
             # Flag stuff
             if debug and current_cmd in [1, 9]:
-                debug_file.write(astor.to_source(ast_stack[-1][-1]) + "\n\n")
+                debug_text += astor.to_source(ast_stack[-1][-1]) + "\n\n"
 
         else:
             if 'type_check' in command_db[str(current_cmd)]:
@@ -382,23 +389,26 @@ def parse_bbscript_routine(file):
 
 
 def parse_bbscript(filename, output_path):
-    global debug_file
+    global debug_text, ast_root
     file = open(filename, 'rb')
-    if debug:
-        debug_file = open(os.path.join(output_path, os.path.split(filename)[1].split('.')[0] + "_error.py"), "w",
-                          encoding="utf-8")
     ast_root = parse_bbscript_routine(file)
-    output = os.path.join(output_path, os.path.split(filename)[1].split('.')[0] + ".py")
-    py = open(output, "w", encoding="utf-8")
-    py.write(astor.to_source(ast_root))
-    if debug:
-        os.remove(os.path.join(output_path, os.path.split(filename)[1].split('.')[0] + "_error.py"))
+    output = os.path.join(output_path, os.path.split(filename)[1].split('.')[0])
+    try:
+        py = open(output + ".py", "w", encoding="utf-8")
+        py.write(astor.to_source(ast_root))
+    except Exception as e:
+        if debug:
+            debug_file = open(output + "_error.py", "w", encoding="utf-8")
+            debug_file.write(debug_text)
+        raise e
     py.close()
 
 
-if __name__ == '__main__':
+def main():
+    global command_db, move_inputs_db, normal_inputs_db, animation_db, move_condition_db, object_db, upon_db, slot_db
+    global no_upon, no_slot, no_0, no_0_command, debug, raw, enable_attributes, no_animation
     flag_list = "Flags: -h, --no-upon, --no-slot, --no-animation, --no-0, --no-0-command, --attributes, --raw, --debug"
-    no_upon = no_slot = no_0 = no_0_command = debug = raw = enable_attributes = no_animation = False
+
     input_file = None
     output_path = None
     for v in sys.argv[1:]:
@@ -412,7 +422,7 @@ if __name__ == '__main__':
             print("--no-0: Delete most instances of SLOT_0 by merging them with commands assigning to SLOT_0")
             print("--no-0-command: Also merge SLOT_0 used inside of commands")
             print(
-                "--attributes: Enable the abstraction of commands using attack attributes e.g. SpecificInvincibility('H')")
+                "--attributes: Enable the abstraction of commands using attack attributes HBFPT e.g. SpecificInvincibility('HBF')")
             print("--raw: Remove all abstraction except states and subroutines, !!!Rebuilding not supported!!! but might work")
             print("--debug: Create a scr_xx_error.py file upon crashing, file is generated state/subroutine by state/subroutine instead of all at once")
             sys.exit(0)
@@ -453,11 +463,19 @@ if __name__ == '__main__':
     command_db = load_json("command_db.json")
     move_inputs_db = load_json("named_values/move_inputs.json")
     normal_inputs_db = load_json("named_values/normal_inputs.json")
-    animation_db = load_json("named_values/hit_animation.json")
     move_condition_db = load_json("named_values/move_condition.json")
     object_db = load_json("named_values/object.json")
-    upon_db = load_json("upon_db/global.json")
-    slot_db = load_json("slot_db/global.json")
+
+    for command, db_data in command_db.items():
+        if "name" not in db_data:
+            db_data["name"] = "Unknown{0}".format(command)
+
+    if not no_slot:
+        slot_db = load_json("slot_db/global.json")
+    if not no_upon:
+        upon_db = load_json("upon_db/global.json")
+    if not no_animation:
+        animation_db = load_json("named_values/hit_animation.json")
 
     #Checking for a custom slot/upon db
     character_name = os.path.split(input_file)[-1].replace("scr_", "").split(".")[0]
@@ -466,14 +484,12 @@ if __name__ == '__main__':
     upon_db.update(load_json("upon_db/" + character_name + ".json"))
     slot_db.update(load_json("slot_db/" + character_name + ".json"))
 
-    if no_slot:
-        slot_db = {}
-    if no_upon:
-        upon_db = {}
-    if no_animation:
-        animation_db = {}
     if output_path is None:
         parse_bbscript(input_file, os.path.split(input_file)[0])
     else:
         parse_bbscript(input_file, output_path)
     print("\033[96m" + "complete" + "\033[0m")
+
+
+if __name__ == '__main__':
+    main()
