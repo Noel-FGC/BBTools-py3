@@ -281,7 +281,7 @@ class MacroExpander(NodeTransformer):
             elif isinstance(node.ops[0], IsNot):
                 return self.resolve_IsNot(left, node.comparators[0])
 
-        if not isinstance(left, constant):
+        if not isinstance(left, Constant):
             return node
 
         result = 1
