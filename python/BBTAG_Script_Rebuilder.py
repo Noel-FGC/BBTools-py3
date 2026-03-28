@@ -265,10 +265,21 @@ class MacroExpander(NodeTransformer):
         node = Constant(self.OpToFunc[type(node.op)](node.operand))
         return node
 
+    def resolve_Is(self, a, b):
+        return Constant(a.__class__.__name__ == b.id)
+    def resolve_IsNot(self, a, b):
+        return Constant(a.__class__.__name__ != b.id)
+
     def visit_Compare(self, node):
         node = self.generic_visit(node)
 
         left = node.left
+
+        if len(node.ops) == 1 and isinstance(node.comparators[0], Name):
+            if isinstance(node.ops[0], Is):
+                return self.resolve_Is(left, node.comparators[0])
+            elif isinstance(node.ops[0], IsNot):
+                return self.resolve_IsNot(left, node.comparators[0])
 
         if (not isinstance(left, Constant)):
             return node
