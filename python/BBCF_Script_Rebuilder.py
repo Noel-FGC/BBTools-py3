@@ -353,7 +353,6 @@ class MacroExpander(NodeTransformer):
 
         i = 0
         while i < node.test.comparators[0].value:
-            print(i, node.test.comparators[0].value)
             body = copy.deepcopy(node.body)
             self.argdict[node.test.left.id] = Constant(i)
             
