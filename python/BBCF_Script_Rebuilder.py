@@ -262,7 +262,7 @@ class MacroExpander(NodeTransformer):
         if not isinstance(node.operand, Constant):
             return node
 
-        node = Constant(self.OpToFunc[type(node.op)](node.operand))
+        node = Constant(self.OpToFunc[type(node.op)](node.operand.value))
         return node
     
     def resolve_Is(self, a, b):
@@ -286,7 +286,7 @@ class MacroExpander(NodeTransformer):
 
         result = 1
 
-        for i, right in node.comparators:
+        for i, right in enumerate(node.comparators):
 
             # this can technically be simplified even with a constant 
             # but i dont wanna write that code
@@ -334,7 +334,6 @@ class MacroExpander(NodeTransformer):
 
     def visit_While(self, node):
 
-
         if (not isinstance(node.test, Compare) or len(node.test.ops) != 1):
             raise Exception("Unsupported test on Macro while statement, while statements should always be formatted: 'while i < n' where i is a variable name to store the current number of iterations, and n is a compiletime constant number (or an expression that evaluates to such) representing the amount of iterations to generate", node)
 
@@ -355,7 +354,7 @@ class MacroExpander(NodeTransformer):
         while i < node.test.comparators[0].value:
             body = copy.deepcopy(node.body)
             self.argdict[node.test.left.id] = Constant(i)
-            
+
             for k, val in enumerate(body):
                 retval = self.visit(val)
                 if isinstance(retval, list):
@@ -633,16 +632,17 @@ class Rebuilder(astor.ExplicitNodeVisitor):
 
         ME = MacroExpander(ArgDict)
 
+        newbody = []
+
         for i, v, in enumerate(Macro.body):
             result = ME.visit(v)
 
             if (isinstance(result, list)):
-                    Macro.body = list(itertools.chain(Macro.body[:i], result, Macro.body[i + 1:]))
-                    i += len(result)
+                newbody += result
             else:
-                Macro.body[i] = result
+                newbody.append(result)
 
-        self.visit_body(Macro.body)
+        self.visit_body(newbody)
 
 
     def generic_visit(self, node):
