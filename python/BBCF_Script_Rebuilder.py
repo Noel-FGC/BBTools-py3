@@ -298,7 +298,6 @@ class MacroExpander(NodeTransformer):
                 break
 
             left = right
-            i+=1
 
         return Constant(result)
 

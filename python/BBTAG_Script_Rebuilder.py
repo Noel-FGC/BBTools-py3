@@ -262,9 +262,9 @@ class MacroExpander(NodeTransformer):
         if not isinstance(node.operand, Constant):
             return node
 
-        node = Constant(self.OpToFunc[type(node.op)](node.operand))
+        node = Constant(self.OpToFunc[type(node.op)](node.operand.value))
         return node
-
+    
     def resolve_Is(self, a, b):
         return Constant(a.__class__.__name__ == b.id)
     def resolve_IsNot(self, a, b):
@@ -281,12 +281,12 @@ class MacroExpander(NodeTransformer):
             elif isinstance(node.ops[0], IsNot):
                 return self.resolve_IsNot(left, node.comparators[0])
 
-        if (not isinstance(left, Constant)):
+        if not isinstance(left, Constant):
             return node
 
         result = 1
 
-        for i, right in node.comparators:
+        for i, right in enumerate(node.comparators):
 
             # this can technically be simplified even with a constant 
             # but i dont wanna write that code
@@ -298,7 +298,6 @@ class MacroExpander(NodeTransformer):
                 break
 
             left = right
-            i+=1
 
         return Constant(result)
 
@@ -334,7 +333,6 @@ class MacroExpander(NodeTransformer):
 
     def visit_While(self, node):
 
-
         if (not isinstance(node.test, Compare) or len(node.test.ops) != 1):
             raise Exception("Unsupported test on Macro while statement, while statements should always be formatted: 'while i < n' where i is a variable name to store the current number of iterations, and n is a compiletime constant number (or an expression that evaluates to such) representing the amount of iterations to generate", node)
 
@@ -353,10 +351,9 @@ class MacroExpander(NodeTransformer):
 
         i = 0
         while i < node.test.comparators[0].value:
-            print(i, node.test.comparators[0].value)
             body = copy.deepcopy(node.body)
             self.argdict[node.test.left.id] = Constant(i)
-            
+
             for k, val in enumerate(body):
                 retval = self.visit(val)
                 if isinstance(retval, list):
@@ -391,6 +388,7 @@ class MacroExpander(NodeTransformer):
                 return Constant(astor.to_source(node.args[0])[:-1]) # to_source always adds a newline to the end of its strings
         
         return node
+
 
 class Rebuilder(astor.ExplicitNodeVisitor):
     MacroDict = {}
@@ -633,16 +631,17 @@ class Rebuilder(astor.ExplicitNodeVisitor):
 
         ME = MacroExpander(ArgDict)
 
+        newbody = []
+
         for i, v, in enumerate(Macro.body):
             result = ME.visit(v)
 
             if (isinstance(result, list)):
-                    Macro.body = list(itertools.chain(Macro.body[:i], result, Macro.body[i + 1:]))
-                    i += len(result)
+                newbody += result
             else:
-                Macro.body[i] = result
+                newbody.append(result)
 
-        self.visit_body(Macro.body)
+        self.visit_body(newbody)
 
     def generic_visit(self, node):
         print(type(node).__name__)
