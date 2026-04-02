@@ -349,8 +349,7 @@ class MacroExpander(NodeTransformer):
 
         retnodes = []
 
-        i = 0
-        while i < node.test.comparators[0].value:
+        for i in range(0, node.test.comparators[0].value):
             body = copy.deepcopy(node.body)
             self.argdict[node.test.left.id] = Constant(i)
 
@@ -360,8 +359,6 @@ class MacroExpander(NodeTransformer):
                     retnodes += retval
                 else:
                     retnodes.append(retval)
-            
-            i+=1
 
         del self.argdict[node.test.left.id]
         return retnodes
